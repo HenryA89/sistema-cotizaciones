@@ -30,7 +30,7 @@ const Directory = ({
       {clientes.length === 0 ? (
         <div className="bg-white p-12 rounded-[60px] border-blue-300 shadow-sm text-center">
           <UserPlus className="w-16 h-16 mx-auto mb-4 text-blue-300" />
-          <h3 className="mb-2 text-2xl font-black text-blue-950">
+          <h3 className="mb-2 text-xl sm:text-2xl lg:text-3xl font-black text-blue-950">
             Sin Clientes Aún
           </h3>
           <p className="mb-8 text-blue-300">

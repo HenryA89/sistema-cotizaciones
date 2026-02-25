@@ -134,7 +134,7 @@ const Diagnostico = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
                 Diagnóstico y Diseño
               </h1>
               {clienteData && (
@@ -169,7 +169,7 @@ const Diagnostico = () => {
             <div className="mx-auto w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-4">
               <User className="w-12 h-12 text-red-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-base sm:text-lg lg:text-xl font-medium text-gray-900 mb-2">
               Cliente no seleccionado
             </h3>
             <p className="text-gray-500">

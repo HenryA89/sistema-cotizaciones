@@ -23,7 +23,7 @@ const Header = ({ activeTab, onToggleSidebar }) => {
           Enterprise Agency OS
         </p>
         <h2
-          className="text-3xl font-black leading-none tracking-tighter uppercase break-words whitespace-normal md:text-5xl"
+          className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black leading-none tracking-tighter uppercase wrap-break-word whitespace-normal"
           style={{ hyphens: "none" }}
         >
           {titles[activeTab]}

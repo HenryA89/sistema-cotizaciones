@@ -52,7 +52,9 @@ const Dashboard = ({
               <p className="text-[10px] font-black text-muted uppercase tracking-widest">
                 {s.label}
               </p>
-              <h3 className="mt-1 text-3xl font-black leading-none">{s.val}</h3>
+              <h3 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black leading-none">
+                {s.val}
+              </h3>
             </div>
             <div
               className={`${s.color} p-3 bg-accent-orange rounded-2xl shadow-inner text-white`}

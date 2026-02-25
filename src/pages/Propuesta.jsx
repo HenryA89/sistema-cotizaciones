@@ -384,7 +384,7 @@ const Propuesta = () => {
                 <ArrowLeft className="w-5 h-5" />
                 Volver a propuestas
               </button>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">
                 Propuesta {selectedPropuesta.quoteData.numero}
               </h1>
               <div className="flex gap-2">
@@ -442,7 +442,9 @@ const Propuesta = () => {
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">Propuestas</h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+                Propuestas
+              </h1>
               <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                 {propuestas.length}{" "}
                 {propuestas.length === 1 ? "propuesta" : "propuestas"}
@@ -466,7 +468,7 @@ const Propuesta = () => {
             <div className="flex items-center justify-center w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full">
               <FileText className="w-12 h-12 text-gray-400" />
             </div>
-            <h3 className="mb-2 text-lg font-medium text-gray-900">
+            <h3 className="mb-2 text-base sm:text-lg lg:text-xl font-medium text-gray-900">
               No hay propuesta generada
             </h3>
             <p className="text-gray-500">No se han creado propuestas aún.</p>
@@ -489,7 +491,7 @@ const Propuesta = () => {
                   <div className="p-6 border-b border-gray-200">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900">
                           Propuesta #{propuesta.numero_cotizacion}
                         </h3>
                         <p className="text-sm text-gray-500">
