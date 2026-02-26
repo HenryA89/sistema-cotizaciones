@@ -9,11 +9,11 @@ const Header = ({ activeTab, onToggleSidebar }) => {
   };
 
   return (
-    <header className="flex items-end justify-between mb-8 md:mb-14 bg-blue-300 text-blue-950">
+    <header className="flex items-end justify-between mb-8 bg-blue-300 md:mb-14 text-blue-950">
       <div className="mr-4 md:hidden">
         <button
           onClick={onToggleSidebar}
-          className="p-2 text-cream bg-primary-dark rounded-lg"
+          className="p-2 rounded-lg text-cream bg-primary-dark"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -23,17 +23,11 @@ const Header = ({ activeTab, onToggleSidebar }) => {
           Enterprise Agency OS
         </p>
         <h2
-          className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black leading-none tracking-tighter uppercase wrap-break-word whitespace-normal"
+          className="text-xl font-black leading-none tracking-tighter uppercase whitespace-normal sm:text-lg md:text-xl lg:text-4xl wrap-break-word"
           style={{ hyphens: "none" }}
         >
           {titles[activeTab]}
         </h2>
-      </div>
-      <div className="flex items-center gap-3 px-5 py-3 bg-cream border border-subtle shadow-sm rounded-2xl shrink-0">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-muted whitespace-nowrap">
-          Cloud Sync On
-        </span>
       </div>
     </header>
   );
