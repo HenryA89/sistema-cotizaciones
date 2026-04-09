@@ -7,154 +7,99 @@ import {
   Building,
   User,
   Calendar,
-  DollarSign,
   Eye,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import PlantillaCotizacion from "../components/quotes/PlantillaCotizacion.jsx";
 import supabase from "../services/supabaseClient.js";
+import { getClientDiagnosis } from "../services/clientWorkflowService.js";
+
+const getItemUnitPrice = (item) =>
+  item?.precio_unitario ?? item?.precio ?? item?.precio_base ?? 0;
 
 const Propuesta = () => {
-  // Probar conexión a Supabase al iniciar
-  const testConnection = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("count")
-        .limit(1);
-
-      if (error) {
-        console.error("❌ Error de conexión a Supabase:", error);
-        return false;
-      } else {
-        console.log("✅ Conexión a Supabase exitosa");
-        console.log("📊 Total clientes:", data?.length || 0);
-        return true;
-      }
-    } catch (err) {
-      console.error("❌ Error crítico de conexión:", err);
-      return false;
-    }
-  };
-
   const [propuestas, setPropuestas] = useState([]);
   const [selectedPropuesta, setSelectedPropuesta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTemplate, setShowTemplate] = useState(false);
-  const [notasCliente, setNotasCliente] = useState({ nota1: "", nota2: "" });
   const [diagnosticos, setDiagnosticos] = useState({
     diagnostico1: localStorage.getItem("diagnostico1") || "",
     diagnostico2: localStorage.getItem("diagnostico2") || "",
   });
   const pdfRef = useRef(null);
 
-  useEffect(() => {
-    // Probar conexión antes de cargar datos
-    const initializeApp = async () => {
-      const connectionOk = await testConnection();
-      if (!connectionOk) {
-        console.error("❌ No se puede continuar sin conexión a Supabase");
-        setLoading(false);
-        return;
-      }
+  const buildQuoteRecord = async (cotizacion) => {
+    const [{ data: items, error: errorItems }, { data: cliente, error: errorCliente }] =
+      await Promise.all([
+        supabase
+          .from("cotizacion_items")
+          .select("*")
+          .eq("cotizacion_id", cotizacion.id),
+        supabase
+          .from("clientes")
+          .select("id, nombres, apellidos, empresa_nombre, ciudad, email, telefono")
+          .eq("id", cotizacion.cliente_id)
+          .single(),
+      ]);
 
-      // Cargar diagnósticos del localStorage
-      const diag1 = localStorage.getItem("diagnostico1") || "";
-      const diag2 = localStorage.getItem("diagnostico2") || "";
-      setDiagnosticos({
-        diagnostico1: diag1,
-        diagnostico2: diag2,
-      });
+    if (errorItems) {
+      console.error("Error cargando items:", errorItems);
+    }
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const cotizacionId = urlParams.get("cotizacionId");
+    if (errorCliente) {
+      console.error("Error cargando cliente:", errorCliente);
+    }
 
-      if (cotizacionId) {
-        cargarCotizacionEspecifica(cotizacionId);
-      } else {
-        cargarPropuestas();
-      }
+    const clienteNormalizado = cliente
+      ? {
+          id: cliente.id,
+          nombres: cliente.nombres || "",
+          apellidos: cliente.apellidos || "",
+          nombreCompleto: `${cliente.nombres || ""} ${cliente.apellidos || ""}`.trim(),
+          empresa_nombre: cliente.empresa_nombre || "",
+          ciudad: cliente.ciudad || "",
+          email: cliente.email || "",
+          telefono: cliente.telefono || "",
+        }
+      : {
+          id: cotizacion.cliente_id,
+          nombres: "",
+          apellidos: "",
+          nombreCompleto: "Cliente no encontrado",
+          empresa_nombre: "",
+          ciudad: "",
+          email: "",
+          telefono: "",
+        };
+
+    return {
+      ...cotizacion,
+      items: items || [],
+      cliente: clienteNormalizado,
+      quoteData: {
+        numero: `COT-${String(cotizacion.id).substring(0, 8)}`,
+        validez: "8 D�AS CALENDARIO",
+        fecha: new Date(cotizacion.created_at).toLocaleDateString("es-CO"),
+      },
     };
-
-    initializeApp();
-  }, []);
+  };
 
   const cargarPropuestas = async () => {
     try {
-      // 1. Cargar cotizaciones principales
-      const { data: cotizaciones, error: errorCotizaciones } = await supabase
+      const { data: cotizaciones, error } = await supabase
         .from("cotizaciones")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (errorCotizaciones) {
-        console.error("Error cargando cotizaciones:", errorCotizaciones);
+      if (error) {
+        console.error("Error cargando cotizaciones:", error);
         setPropuestas([]);
         return;
       }
 
-      // 2. Cargar items y datos de clientes para cada cotización
       const propuestasCompletas = await Promise.all(
-        cotizaciones.map(async (cotizacion) => {
-          // Cargar items de esta cotización
-          const { data: items, error: errorItems } = await supabase
-            .from("cotizacion_items")
-            .select("*")
-            .eq("cotizacion_id", cotizacion.id);
-
-          // Cargar datos del cliente (necesarios para mostrar en la UI)
-          console.log("🔍 Buscando cliente con ID:", cotizacion.cliente_id);
-
-          const { data: cliente, error: errorCliente } = await supabase
-            .from("clientes")
-            .select(
-              "id, nombres, apellidos, empresa_nombre, ciudad, email, telefono",
-            )
-            .eq("id", cotizacion.cliente_id)
-            .single();
-
-          if (errorCliente) {
-            console.error("❌ Error cargando cliente:", errorCliente);
-            console.error("📍 Cliente ID buscado:", cotizacion.cliente_id);
-          } else {
-            console.log("✅ Cliente encontrado:", cliente);
-            console.log("📊 Nombres:", cliente?.nombres);
-            console.log("📊 Apellidos:", cliente?.apellidos);
-          }
-
-          return {
-            ...cotizacion,
-            items: items || [],
-            cliente: cliente
-              ? {
-                  id: cliente.id,
-                  nombres: cliente.nombres || "",
-                  apellidos: cliente.apellidos || "",
-                  nombreCompleto:
-                    `${cliente.nombres} ${cliente.apellidos}`.trim(),
-                  empresa_nombre: cliente.empresa_nombre || "",
-                  ciudad: cliente.ciudad || "",
-                  email: cliente.email || "",
-                  telefono: cliente.telefono || "",
-                }
-              : {
-                  id: cotizacion.cliente_id,
-                  nombres: "",
-                  apellidos: "",
-                  nombreCompleto: "Cliente no encontrado",
-                  empresa_nombre: "",
-                  ciudad: "",
-                  email: "",
-                  telefono: "",
-                },
-            quoteData: {
-              numero: `COT-${cotizacion.id.substring(0, 8)}`,
-              validez: "8 DÍAS CALENDARIO",
-              fecha: new Date(cotizacion.created_at).toLocaleDateString(),
-            },
-          };
-        }),
+        (cotizaciones || []).map((cotizacion) => buildQuoteRecord(cotizacion)),
       );
 
       setPropuestas(propuestasCompletas);
@@ -168,83 +113,20 @@ const Propuesta = () => {
 
   const cargarCotizacionEspecifica = async (cotizacionId) => {
     try {
-      // 1. Cargar cotización principal
-      const { data: cotizacion, error: errorCotizacion } = await supabase
+      const { data: cotizacion, error } = await supabase
         .from("cotizaciones")
         .select("*")
         .eq("id", cotizacionId)
         .single();
 
-      if (errorCotizacion) {
-        console.error("Error cargando cotización:", errorCotizacion);
+      if (error || !cotizacion) {
+        console.error("Error cargando cotizaci�n:", error);
         setPropuestas([]);
         return;
       }
 
-      // 2. Cargar items de la cotización (con subtotales ya calculados)
-      const { data: items, error: errorItems } = await supabase
-        .from("cotizacion_items")
-        .select("*")
-        .eq("cotizacion_id", cotizacionId);
-
-      if (errorItems) {
-        console.error("Error cargando items:", errorItems);
-        setPropuestas([]);
-        return;
-      }
-
-      // 3. Cargar datos del cliente (necesarios para mostrar en la UI)
-      const { data: cliente, error: errorCliente } = await supabase
-        .from("clientes")
-        .select([
-          "id",
-          "nombres",
-          "apellidos",
-          "empresa_nombre",
-          "ciudad",
-          "email",
-          "telefono",
-        ])
-        .eq("id", cotizacion.cliente_id)
-        .single();
-
-      if (errorCliente) {
-        console.error("Error cargando datos del cliente:", errorCliente);
-      }
-
-      // 4. Formatear cotización completa con datos del cliente
-      const cotizacionCompleta = {
-        ...cotizacion,
-        items: items || [],
-        cliente: cliente
-          ? {
-              id: cliente.id,
-              nombres: cliente.nombres || "",
-              apellidos: cliente.apellidos || "",
-              nombreCompleto: `${cliente.nombres} ${cliente.apellidos}`.trim(),
-              empresa_nombre: cliente.empresa_nombre || "",
-              ciudad: cliente.ciudad || "",
-              email: cliente.email || "",
-              telefono: cliente.telefono || "",
-            }
-          : {
-              id: cotizacion.cliente_id,
-              nombres: "",
-              apellidos: "",
-              nombreCompleto: "Cliente no encontrado",
-              empresa_nombre: "",
-              ciudad: "",
-              email: "",
-              telefono: "",
-            },
-        quoteData: {
-          numero: `COT-${cotizacion.id.substring(0, 8)}`,
-          validez: "8 DÍAS CALENDARIO",
-          fecha: new Date(cotizacion.created_at).toLocaleDateString(),
-        },
-      };
-
-      setPropuestas([cotizacionCompleta]);
+      const propuesta = await buildQuoteRecord(cotizacion);
+      setPropuestas([propuesta]);
     } catch (error) {
       console.error("Error en cargarCotizacionEspecifica:", error);
       setPropuestas([]);
@@ -253,7 +135,47 @@ const Propuesta = () => {
     }
   };
 
-  const handleVerPropuesta = (propuesta) => {
+  useEffect(() => {
+    const initialize = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const cotizacionId = urlParams.get("cotizacionId");
+
+      if (cotizacionId) {
+        await cargarCotizacionEspecifica(cotizacionId);
+      } else {
+        await cargarPropuestas();
+      }
+    };
+
+    initialize();
+  }, []);
+
+  const hydrateDiagnostics = async (clientId) => {
+    try {
+      const diagnostics = await getClientDiagnosis(clientId);
+      const diagnostico1 =
+        diagnostics.diagnostico1 ||
+        localStorage.getItem(`diagnostico1:${clientId}`) ||
+        localStorage.getItem("diagnostico1") ||
+        "";
+      const diagnostico2 =
+        diagnostics.diagnostico2 ||
+        localStorage.getItem(`diagnostico2:${clientId}`) ||
+        localStorage.getItem("diagnostico2") ||
+        "";
+
+      setDiagnosticos({ diagnostico1, diagnostico2 });
+    } catch (error) {
+      console.error("Error cargando diagn�sticos:", error);
+    }
+  };
+
+  const handleVerPropuesta = async (propuesta) => {
+    const clientId = propuesta?.cliente?.id || propuesta?.cliente_id;
+    if (clientId) {
+      await hydrateDiagnostics(clientId);
+    }
+
     setSelectedPropuesta(propuesta);
     setShowTemplate(true);
   };
@@ -264,81 +186,75 @@ const Propuesta = () => {
   };
 
   const handlePrint = () => {
-    if (pdfRef.current) {
-      const printContent = pdfRef.current;
-      const printWindow = window.open("", "_blank");
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Propuesta ${selectedPropuesta.quoteData.numero}</title>
-            <style>
-              body { margin: 0; font-family: Arial, sans-serif; }
-              @media print { body { margin: 0; } }
-            </style>
-          </head>
-          <body>
-            ${printContent.innerHTML}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
+    if (!pdfRef.current || !selectedPropuesta) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Propuesta ${selectedPropuesta.quoteData.numero}</title>
+          <style>
+            body { margin: 0; font-family: Arial, sans-serif; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>${pdfRef.current.innerHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   const handleDownloadPDF = async () => {
-    if (pdfRef.current) {
-      try {
-        const canvas = await html2canvas(pdfRef.current, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-        });
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF("p", "mm", "a4");
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const imgX = (pdfWidth - imgWidth * ratio) / 2;
-        const imgY = 0;
+    if (!pdfRef.current || !selectedPropuesta) return;
 
-        pdf.addImage(
-          imgData,
-          "PNG",
-          imgX,
-          imgY,
-          imgWidth * ratio,
-          imgHeight * ratio,
-        );
-        pdf.save(`propuesta-${selectedPropuesta.quoteData.numero}.pdf`);
-      } catch (error) {
-        console.error("Error generando PDF:", error);
-      }
+    try {
+      const canvas = await html2canvas(pdfRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+
+      pdf.addImage(
+        imgData,
+        "PNG",
+        (pdfWidth - canvas.width * ratio) / 2,
+        0,
+        canvas.width * ratio,
+        canvas.height * ratio,
+      );
+
+      pdf.save(`propuesta-${selectedPropuesta.quoteData.numero}.pdf`);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
     }
   };
 
   const handleDescargarWord = (propuesta) => {
-    // Implementación para descargar como Word
-    console.log("Descargando como Word:", propuesta);
+    console.log("Descargar como Word (pendiente):", propuesta?.id);
   };
 
-  const handleGuardarDiagnosticos = async () => {
-    try {
-      // Implementación para guardar diagnósticos en la propuesta
-      console.log("Guardando diagnósticos:", diagnosticos);
-    } catch (error) {
-      console.error("Error guardando diagnósticos:", error);
-    }
+  const handleDescargarPDF = (propuesta) => {
+    handleVerPropuesta(propuesta);
   };
 
   const calcularTotal = (items) => {
     return (
       items?.reduce((total, item) => {
+        const unitPrice = getItemUnitPrice(item);
         return (
           total +
-          item.precio * (item.cantidad || 1) * (1 - (item.descuento || 0) / 100)
+          unitPrice *
+            (item.cantidad || 1) *
+            (1 - (item.descuento || 0) / 100)
         );
       }, 0) || 0
     );
@@ -357,7 +273,7 @@ const Propuesta = () => {
       style: "currency",
       currency: "COP",
       minimumFractionDigits: 0,
-    }).format(cantidad);
+    }).format(cantidad || 0);
   };
 
   if (loading) {
@@ -384,23 +300,23 @@ const Propuesta = () => {
                 <ArrowLeft className="w-5 h-5" />
                 Volver a propuestas
               </button>
+
               <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">
                 Propuesta {selectedPropuesta.quoteData.numero}
               </h1>
+
               <div className="flex gap-2">
                 <button
                   onClick={handlePrint}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
-                  <Printer className="w-4 h-4" />
-                  Imprimir
+                  <Printer className="w-4 h-4" /> Imprimir
                 </button>
                 <button
                   onClick={handleDownloadPDF}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
-                  <Download className="w-4 h-4" />
-                  Descargar PDF
+                  <Download className="w-4 h-4" /> Descargar PDF
                 </button>
               </div>
             </div>
@@ -416,13 +332,8 @@ const Propuesta = () => {
             diagnostico1={diagnosticos.diagnostico1}
             diagnostico2={diagnosticos.diagnostico2}
           />
+
           <div className="flex justify-end gap-4 mt-8">
-            <button
-              onClick={handleGuardarDiagnosticos}
-              className="px-6 py-3 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              Guardar Diagnósticos en Propuesta
-            </button>
             <button
               onClick={handleVolver}
               className="px-6 py-3 text-white transition-colors bg-gray-600 rounded-lg hover:bg-gray-700"
@@ -437,7 +348,6 @@ const Propuesta = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -446,22 +356,20 @@ const Propuesta = () => {
                 Propuestas
               </h1>
               <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {propuestas.length}{" "}
-                {propuestas.length === 1 ? "propuesta" : "propuestas"}
+                {propuestas.length} {propuestas.length === 1 ? "propuesta" : "propuestas"}
               </span>
             </div>
             <button
-              onClick={() => (window.location.href = "/")}
+              onClick={() => window.location.reload()}
               className="flex items-center gap-2 text-gray-600 transition-colors hover:text-gray-900"
             >
               <ArrowLeft className="w-5 h-5" />
-              Volver al Dashboard
+              Actualizar
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
         {propuestas.length === 0 ? (
           <div className="py-12 text-center">
@@ -469,114 +377,93 @@ const Propuesta = () => {
               <FileText className="w-12 h-12 text-gray-400" />
             </div>
             <h3 className="mb-2 text-base sm:text-lg lg:text-xl font-medium text-gray-900">
-              No hay propuesta generada
+              No hay propuestas generadas
             </h3>
-            <p className="text-gray-500">No se han creado propuestas aún.</p>
+            <p className="text-gray-500">No se han creado propuestas a�n.</p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {propuestas.map((propuesta) => {
-              // Debug: Verificar datos del cliente en cada card
-              const cliente = propuesta.cliente;
-              const nombres = cliente?.nombres;
-              const apellidos = cliente?.apellidos;
-              const empresa = cliente?.empresa_nombre;
-
-              return (
-                <div
-                  key={propuesta.id}
-                  className="transition-shadow bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md"
-                >
-                  {/* Card Header */}
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900">
-                          Propuesta #{propuesta.numero_cotizacion}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {formatearFecha(propuesta.created_at)}
-                        </p>
-                      </div>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          propuesta.estado === "aprobada"
-                            ? "bg-green-100 text-green-800"
-                            : propuesta.estado === "rechazada"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {propuesta.estado === "aprobada"
-                          ? "Aprobada"
+            {propuestas.map((propuesta) => (
+              <div
+                key={propuesta.id}
+                className="transition-shadow bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md"
+              >
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900">
+                        Propuesta #{propuesta.numero_cotizacion || propuesta.quoteData.numero}
+                      </h3>
+                      <p className="text-sm text-gray-500">{formatearFecha(propuesta.created_at)}</p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        propuesta.estado === "aprobada"
+                          ? "bg-green-100 text-green-800"
                           : propuesta.estado === "rechazada"
-                            ? "Rechazada"
-                            : "Pendiente"}
-                      </span>
-                    </div>
-
-                    {/* Cliente Info */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Building className="w-4 h-4" />
-                        <span>{propuesta.cliente.empresa_nombre}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <User className="w-4 h-4" />
-                        <span>
-                          {propuesta.cliente.nombres}{" "}
-                          {propuesta.cliente.apellidos}{" "}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        <span>Vigencia: {propuesta.quoteData.validez}</span>
-                      </div>
-                    </div>
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {propuesta.estado === "aprobada"
+                        ? "Aprobada"
+                        : propuesta.estado === "rechazada"
+                          ? "Rechazada"
+                          : "Pendiente"}
+                    </span>
                   </div>
 
-                  {/* Card Body */}
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm text-gray-500">
-                        Total inversión
-                      </span>
-                      <span className="text-2xl font-bold text-gray-900">
-                        {formatearMoneda(calcularTotal(propuesta.items))}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Building className="w-4 h-4" />
+                      <span>{propuesta.cliente?.empresa_nombre || "Sin empresa"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <User className="w-4 h-4" />
+                      <span>
+                        {propuesta.cliente?.nombres} {propuesta.cliente?.apellidos}
                       </span>
                     </div>
-                    <div className="mb-4 text-sm text-gray-600">
-                      <p className="line-clamp-2">{propuesta.diagnosis}</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>Vigencia: {propuesta.quoteData.validez}</span>
                     </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleVerPropuesta(propuesta)}
-                      className="flex items-center justify-center flex-1 gap-2 px-3 py-2 text-sm font-medium text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Ver
-                    </button>
-                    <button
-                      onClick={() => handleDescargarPDF(propuesta)}
-                      className="flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 transition-colors bg-gray-100 rounded-md hover:bg-gray-200"
-                      title="Descargar PDF"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDescargarWord(propuesta)}
-                      className="flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 transition-colors bg-gray-100 rounded-md hover:bg-gray-200"
-                      title="Descargar Word"
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm text-gray-500">Total inversi�n</span>
+                    <span className="text-2xl font-bold text-gray-900">
+                      {formatearMoneda(calcularTotal(propuesta.items))}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 px-6 pb-6">
+                  <button
+                    onClick={() => handleVerPropuesta(propuesta)}
+                    className="flex items-center justify-center flex-1 gap-2 px-3 py-2 text-sm font-medium text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    <Eye className="w-4 h-4" /> Ver
+                  </button>
+                  <button
+                    onClick={() => handleDescargarPDF(propuesta)}
+                    className="flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 transition-colors bg-gray-100 rounded-md hover:bg-gray-200"
+                    title="Abrir y descargar PDF"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDescargarWord(propuesta)}
+                    className="flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 transition-colors bg-gray-100 rounded-md hover:bg-gray-200"
+                    title="Descargar Word"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

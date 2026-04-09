@@ -11,6 +11,7 @@ const generateUUID = () => {
 import { X, Plus, Trash2, Package, Truck } from "lucide-react";
 import { useQuoteBuilder } from "../../hooks/useQuoteBuilder.js";
 import supabase from "../../services/supabaseClient.js";
+import { getDistributorPrices } from "../../services/clientWorkflowService.js";
 
 const QuoteBuilder = ({
   isOpen,
@@ -27,6 +28,7 @@ const QuoteBuilder = ({
     addItem,
     updateItem,
     removeItem,
+    replaceItems,
   } = useQuoteBuilder();
 
   const [distribuidorMode, setDistribuidorMode] = useState(false);
@@ -40,53 +42,13 @@ const QuoteBuilder = ({
 
   // Obtener precios de distribuidor
   const fetchPreciosDistribuidor = async () => {
-    console.log("🚀 Iniciando petición de precios de distribuidor...");
     setLoadingPrecios(true);
 
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      // Extraer el project-ref de la URL de Supabase
-      const projectRef =
-        SUPABASE_URL.split("https://")[1].split(".supabase.co")[0];
-
-      const apiUrl = `https://${projectRef}.supabase.co/rest/v1/precios_producto?tipo_precio=eq.distribuidor`;
-      console.log("🔗 URL de la API:", apiUrl);
-
-      const response = await fetch(apiUrl, {
-        method: "GET",
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("📡 Respuesta HTTP:", response.status, response.statusText);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      console.log("✅ Precios de distribuidor obtenidos:", data);
-      console.log("📊 Total de precios:", data.length);
-
-      // Crear un mapa de producto_id -> precio_distribuidor
-      const preciosMap = {};
-      data.forEach((precio) => {
-        preciosMap[precio.producto_id] = precio.precio_distribuidor;
-        console.log(
-          `💰 Producto ${precio.producto_id}: $${precio.precio_distribuidor}`,
-        );
-      });
-
-      console.log("🗺️ Mapa de precios creado:", preciosMap);
+      const preciosMap = await getDistributorPrices();
       setPreciosDistribuidor(preciosMap);
     } catch (err) {
-      console.error("❌ Error fetching precios distribuidor:", err);
+      console.error("Error cargando precios de distribuidor:", err);
     } finally {
       setLoadingPrecios(false);
     }
@@ -99,10 +61,46 @@ const QuoteBuilder = ({
     }
   }, [distribuidorMode]);
 
+  useEffect(() => {
+    if (!Array.isArray(quoteItems) || quoteItems.length === 0) return;
+
+    const hasDistributorPrices = Object.keys(preciosDistribuidor).length > 0;
+    const nextItems = quoteItems.map((item) => {
+      if (item.tipo !== "producto") return item;
+
+      const productoOriginal = productos.find((p) => p.id === item.producto_id);
+      const precioBase =
+        productoOriginal?.precio_unitario || productoOriginal?.precio || item.precio;
+
+      if (!distribuidorMode) {
+        if (item.precio === precioBase) return item;
+        return { ...item, precio: precioBase };
+      }
+
+      if (!hasDistributorPrices) return item;
+
+      const distributorPrice = preciosDistribuidor[String(item.producto_id)];
+      if (distributorPrice === undefined || item.precio === distributorPrice) {
+        return item;
+      }
+
+      return { ...item, precio: distributorPrice };
+    });
+
+    const changed = nextItems.some((item, idx) => item !== quoteItems[idx]);
+    if (changed) {
+      replaceItems(nextItems);
+    }
+  }, [distribuidorMode, preciosDistribuidor, productos, quoteItems, replaceItems]);
+
   // Función para obtener el precio correcto según el modo
   const getPrecioProducto = (producto) => {
-    if (distribuidorMode && preciosDistribuidor[producto.id]) {
-      return preciosDistribuidor[producto.id];
+    const key = String(producto.id);
+    if (
+      distribuidorMode &&
+      Object.prototype.hasOwnProperty.call(preciosDistribuidor, key)
+    ) {
+      return preciosDistribuidor[key];
     }
     return producto.precio_unitario || producto.precio || 0;
   };
@@ -224,6 +222,11 @@ const QuoteBuilder = ({
                   ? "Precios Distribuidor"
                   : "Precios Persona"}
             </button>
+            {distribuidorMode && (
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                {Object.keys(preciosDistribuidor).length} precios cargados
+              </span>
+            )}
             {/* Botón de prueba eliminado */}
             <button
               onClick={onClose}

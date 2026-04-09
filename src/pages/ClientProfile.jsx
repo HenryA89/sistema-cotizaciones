@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   ChevronLeft,
   Camera,
@@ -9,26 +9,33 @@ import {
   FilePlus,
 } from "lucide-react";
 import { uploadClientPhoto } from "../services/clientService.js";
-import Diagnostico from "./Diagnostico.jsx";
-import ClientNotes from "../components/clients/ClientNotes.jsx";
 
-const ClientProfile = ({ client, onBack, onCreateQuote, onOpenNotes }) => {
+const ClientProfile = ({
+  client,
+  onBack,
+  onCreateQuote,
+  onOpenNotes,
+  onOpenDiagnostico,
+  onCreateProposal,
+}) => {
   const clientName = `${client.nombres || ""} ${client.apellidos || ""}`.trim();
   const clientInitial = clientName.charAt(0) || "C";
   const clientLocation = `${client.ciudad || ""}, ${client.pais || ""}`.trim();
 
-  // Estados para controlar qu茅 componente mostrar
-  const [showDiagnostico, setShowDiagnostico] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-
-  // Funci贸n para verificar si los diagn贸sticos est谩n completos
   const verificarDiagnosticos = () => {
-    const diagnostico1 = localStorage.getItem("diagnostico1") || "";
-    const diagnostico2 = localStorage.getItem("diagnostico2") || "";
+    const diagnostico1 =
+      localStorage.getItem(`diagnostico1:${client.id}`) ||
+      localStorage.getItem("diagnostico1") ||
+      "";
+
+    const diagnostico2 =
+      localStorage.getItem(`diagnostico2:${client.id}`) ||
+      localStorage.getItem("diagnostico2") ||
+      "";
 
     if (!diagnostico1.trim() || !diagnostico2.trim()) {
       alert(
-        "Falta diligenciar diagn贸stico y dise帽o. Por favor completa ambos campos en la secci贸n de Diagn贸stico y Dise帽o.",
+        "Falta diligenciar diagn髎tico y dise駉. Completa ambos campos antes de generar la propuesta.",
       );
       return false;
     }
@@ -36,46 +43,43 @@ const ClientProfile = ({ client, onBack, onCreateQuote, onOpenNotes }) => {
     return true;
   };
 
-  // Funci贸n para crear propuesta
   const handleCrearPropuesta = () => {
-    if (!verificarDiagnosticos()) {
-      return;
-    }
+    if (!verificarDiagnosticos()) return;
 
-    // Redirigir a propuestas con el clienteId
-    window.location.href = `/propuestas?clienteId=${client.id}`;
+    localStorage.setItem("selectedClientId", String(client.id));
+    onCreateProposal();
   };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onloadend = async () => {
       await uploadClientPhoto(client.id, reader.result);
     };
+
     reader.readAsDataURL(file);
     e.target.value = null;
   };
 
   return (
     <div className="max-w-md mx-auto">
-      {/* Card de Perfil Centrada */}
       <div className="space-y-6">
-        {/* Bot贸n Back Superior */}
         <button
           onClick={onBack}
           className="inline-flex items-center gap-2 px-5 py-3 text-xs font-black tracking-widest uppercase transition-all rounded-full shadow-lg bg-cream-bg text-primary-green hover:scale-105"
         >
-          <ChevronLeft className="w-4 h-4" /> Atr谩s
+          <ChevronLeft className="w-4 h-4" /> Atr醩
         </button>
 
-        {/* Card de Perfil */}
         <div className="card p-10 rounded-[60px] border-blue-300 shadow-sm relative overflow-hidden text-center">
           <div className="w-40 h-40 md:w-56 md:h-56 bg-cream-bg rounded-[60px] border-4 border-blue-300 shadow-2xl overflow-hidden mx-auto mb-8 relative group shrink-0">
             {client.foto_url ? (
               <img
                 src={client.foto_url}
                 className="object-cover w-full h-full"
+                alt={`Foto de ${clientName}`}
               />
             ) : (
               <div className="flex items-center justify-center w-full h-full font-black text-blue-300 bg-blue-950 text-7xl">
@@ -99,85 +103,45 @@ const ClientProfile = ({ client, onBack, onCreateQuote, onOpenNotes }) => {
           >
             {clientName}
           </h3>
+
           <div className="pt-10 mt-10 space-y-5 text-xs font-bold tracking-widest text-left text-blue-300 uppercase border-t border-blue-300">
             <div className="flex items-center gap-4">
               <MapPin className="w-5 h-5 text-blue-300" /> {clientLocation}
             </div>
           </div>
         </div>
-        {/* Botones de Acci贸n */}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button
-            onClick={() => setShowNotes(true)}
+            onClick={onOpenNotes}
             className="bg-cream-bg text-primary-green py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-blue-300 hover:text-blue-950 transition-all shadow-lg hover:shadow-xl"
           >
-            <BookOpen className="w-5 h-5" /> Bit谩cora
+            <BookOpen className="w-5 h-5" /> Bit醕ora
           </button>
+
           <button
-            onClick={() => setShowDiagnostico(true)}
+            onClick={onOpenDiagnostico}
             className="bg-cream-bg text-primary-green py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-blue-300 hover:text-blue-950 transition-all shadow-lg hover:shadow-xl"
           >
-            <FileText className="w-5 h-5" /> Diagn贸stico y Dise帽o
+            <FileText className="w-5 h-5" /> Diagn髎tico y Dise駉
           </button>
+
           <button
             onClick={onCreateQuote}
             className="bg-cream-bg text-primary-green py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all shadow-2xl"
           >
-            <Zap className="w-5 h-5 text-yellow-500 fill-yellow-500" />{" "}
-            Cotizaci贸n
+            <Zap className="w-5 h-5 text-yellow-500 fill-yellow-500" /> Cotizaci髇
           </button>
+
           <button
             onClick={handleCrearPropuesta}
             className="bg-blue-600 text-white py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-2xl"
-            title="Generar Propuesta PDF"
+            title="Generar propuesta"
           >
             <FilePlus className="w-5 h-5" /> Generar Propuesta
           </button>
         </div>
       </div>
-
-      {/* Renderizar componentes adicionales */}
-      {showNotes && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                Bit谩cora del Cliente
-              </h2>
-              <button
-                onClick={() => setShowNotes(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              <ClientNotes client={client} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDiagnostico && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                Diagn贸stico y Dise帽o
-              </h2>
-              <button
-                onClick={() => setShowDiagnostico(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              <Diagnostico />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

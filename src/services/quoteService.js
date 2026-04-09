@@ -1,4 +1,3 @@
-// Firebase removed
 import supabase from "./supabaseClient.js";
 
 export const createQuote = async (client, items, notes = "") => {

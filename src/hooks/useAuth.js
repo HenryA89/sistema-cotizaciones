@@ -6,10 +6,13 @@ export const useAuth = () => {
 
   useEffect(() => {
     const initialize = async () => {
-      await initAuth();
+      const restoredUser = await initAuth();
+      setUser(restoredUser);
     };
+
     initialize();
     const unsubscribe = subscribeToAuthState(setUser);
+
     return () => unsubscribe();
   }, []);
 

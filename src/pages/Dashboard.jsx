@@ -52,7 +52,7 @@ const Dashboard = ({
               <p className="text-[10px] font-black text-muted uppercase tracking-widest">
                 {s.label}
               </p>
-              <h3 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black leading-none">
+              <h3 className="mt-1 text-2xl font-black leading-none sm:text-3xl lg:text-4xl">
                 {s.val}
               </h3>
             </div>

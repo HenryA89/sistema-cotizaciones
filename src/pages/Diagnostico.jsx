@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Save, User, Building, CheckCircle } from "lucide-react";
-import supabase from "../services/supabaseClient.js";
+import {
+  getClientById,
+  getClientDiagnosis,
+  resolveClientId,
+  saveDiagnosisNote,
+} from "../services/clientWorkflowService.js";
 
-const Diagnostico = () => {
-  const [clienteId, setClienteId] = useState(null);
+const Diagnostico = ({ clientId: clientIdProp, clientData: clientDataProp, onBack }) => {
+  const [clienteId, setClienteId] = useState("");
   const [clienteData, setClienteData] = useState(null);
   const [diagnostico1, setDiagnostico1] = useState("");
   const [diagnostico2, setDiagnostico2] = useState("");
@@ -12,108 +17,129 @@ const Diagnostico = () => {
   const [guardado1, setGuardado1] = useState(false);
   const [guardado2, setGuardado2] = useState(false);
 
-  // Obtener ID del cliente y cargar datos
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const id =
-      urlParams.get("clienteId") ||
-      localStorage.getItem("selectedClientId") ||
-      "";
-    setClienteId(id);
+    const initialize = async () => {
+      setCargandoDatos(true);
 
-    if (id) {
-      cargarDatosCliente(id);
-      cargarDiagnosticosExistentes(id);
-    } else {
-      setCargandoDatos(false);
-    }
-  }, []);
+      const resolvedId = resolveClientId(clientIdProp);
+      setClienteId(resolvedId);
 
-  const cargarDatosCliente = async (id) => {
-    try {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) {
-        console.error("Error cargando cliente:", error);
-      } else {
-        setClienteData(data);
+      if (!resolvedId) {
+        setClienteData(null);
+        setCargandoDatos(false);
+        return;
       }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setCargandoDatos(false);
+
+      try {
+        if (clientDataProp?.id && String(clientDataProp.id) === String(resolvedId)) {
+          setClienteData(clientDataProp);
+        } else {
+          const fetchedClient = await getClientById(resolvedId);
+          setClienteData(fetchedClient);
+        }
+
+        const diagnostics = await getClientDiagnosis(resolvedId);
+
+        const storedDiag1 =
+          diagnostics.diagnostico1 ||
+          localStorage.getItem(`diagnostico1:${resolvedId}`) ||
+          localStorage.getItem("diagnostico1") ||
+          "";
+
+        const storedDiag2 =
+          diagnostics.diagnostico2 ||
+          localStorage.getItem(`diagnostico2:${resolvedId}`) ||
+          localStorage.getItem("diagnostico2") ||
+          "";
+
+        setDiagnostico1(storedDiag1);
+        setDiagnostico2(storedDiag2);
+        setGuardado1(Boolean(storedDiag1.trim()));
+        setGuardado2(Boolean(storedDiag2.trim()));
+      } catch (error) {
+        console.error("Error cargando diagn髎tico:", error);
+      } finally {
+        setCargandoDatos(false);
+      }
+    };
+
+    initialize();
+  }, [clientIdProp, clientDataProp]);
+
+  const persistLocalDiagnosis = (fieldKey, content) => {
+    localStorage.setItem(fieldKey, content);
+    if (clienteId) {
+      localStorage.setItem(`${fieldKey}:${clienteId}`, content);
     }
   };
 
-  const cargarDiagnosticosExistentes = async (id) => {
-    try {
-      const { data, error } = await supabase
-        .from("notas")
-        .select("*")
-        .eq("cliente_id", id)
-        .order("fecha_creacion", { ascending: false });
-
-      if (error) {
-        console.error("Error cargando notas existentes:", error);
-      } else {
-        // Cargar 煤ltima nota de cada tipo
-        const notas = data || [];
-        const nota1 = notas.find((n) => n.tipo === "nota1");
-        const nota2 = notas.find((n) => n.tipo === "nota2");
-
-        if (nota1) setDiagnostico1(nota1.texto);
-        if (nota2) setDiagnostico2(nota2.texto);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  };
-
-  const handleSaveDiagnostico1 = () => {
+  const handleSaveDiagnostico1 = async () => {
     if (!diagnostico1.trim()) {
-      alert("Por favor ingresa el diagn贸stico y prop贸sito");
+      alert("Por favor ingresa el diagn髎tico y prop髎ito");
       return;
     }
 
-    // Guardar en localStorage para que Propuesta.jsx lo pueda leer
-    localStorage.setItem("diagnostico1", diagnostico1);
-    setGuardado1(true);
-    alert("Diagn贸stico y Prop贸sito guardado satisfactoriamente");
+    if (!clienteId) {
+      alert("No hay cliente seleccionado");
+      return;
+    }
 
-    // Verificar si ambos est谩n guardados para redirigir al perfil
-    verificarYRedirigir();
+    setLoading(true);
+    try {
+      await saveDiagnosisNote({
+        clientId: clienteId,
+        type: "diagnostico_1",
+        content: diagnostico1,
+      });
+
+      persistLocalDiagnosis("diagnostico1", diagnostico1);
+      setGuardado1(true);
+      alert("Diagn髎tico y prop髎ito guardado correctamente");
+    } catch (error) {
+      console.error("Error guardando diagn髎tico 1:", error);
+      alert("No fue posible guardar el diagn髎tico");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveDiagnostico2 = () => {
+  const handleSaveDiagnostico2 = async () => {
     if (!diagnostico2.trim()) {
-      alert("Por favor ingresa el alcance y dise帽o");
+      alert("Por favor ingresa el alcance y dise駉");
       return;
     }
 
-    // Guardar en localStorage para que Propuesta.jsx lo pueda leer
-    localStorage.setItem("diagnostico2", diagnostico2);
-    setGuardado2(true);
-    alert("Alcance del Dise帽o guardado satisfactoriamente");
+    if (!clienteId) {
+      alert("No hay cliente seleccionado");
+      return;
+    }
 
-    // Verificar si ambos est谩n guardados para redirigir al perfil
-    verificarYRedirigir();
+    setLoading(true);
+    try {
+      await saveDiagnosisNote({
+        clientId: clienteId,
+        type: "diagnostico_2",
+        content: diagnostico2,
+      });
+
+      persistLocalDiagnosis("diagnostico2", diagnostico2);
+      setGuardado2(true);
+      alert("Alcance y dise駉 guardado correctamente");
+    } catch (error) {
+      console.error("Error guardando diagn髎tico 2:", error);
+      alert("No fue posible guardar el alcance y dise駉");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const verificarYRedirigir = () => {
-    // Verificar si ambos diagn贸sticos est谩n guardados
-    const diag1Guardado = localStorage.getItem("diagnostico1")?.trim() || "";
-    const diag2Guardado = localStorage.getItem("diagnostico2")?.trim() || "";
-
-    if (diag1Guardado && diag2Guardado) {
-      // Ambos est谩n guardados, redirigir al perfil del cliente
-      setTimeout(() => {
-        window.location.href = `/profile?clienteId=${clienteId}`;
-      }, 1000); // Peque帽a pausa para que el usuario vea el 煤ltimo mensaje
+  const handleBack = () => {
+    if (typeof onBack === "function") {
+      onBack();
+      return;
     }
+
+    window.history.back();
   };
 
   if (cargandoDatos) {
@@ -121,7 +147,7 @@ const Diagnostico = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando informaci贸n del cliente...</p>
+          <p className="text-gray-600">Cargando informaci髇 del cliente...</p>
         </div>
       </div>
     );
@@ -129,30 +155,29 @@ const Diagnostico = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
-                Diagn贸stico y Dise帽o
+                Diagn髎tico y Dise駉
               </h1>
               {clienteData && (
                 <div className="flex items-center gap-2">
                   <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                     Cliente: {clienteData.nombres} {clienteData.apellidos}
                   </span>
-                  {clienteData.empresa && (
+                  {clienteData.empresa_nombre && (
                     <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                       <Building className="w-3 h-3 inline mr-1" />
-                      {clienteData.empresa}
+                      {clienteData.empresa_nombre}
                     </span>
                   )}
                 </div>
               )}
             </div>
             <button
-              onClick={() => window.history.back()}
+              onClick={handleBack}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -162,7 +187,6 @@ const Diagnostico = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!clienteId ? (
           <div className="text-center py-12">
@@ -173,16 +197,15 @@ const Diagnostico = () => {
               Cliente no seleccionado
             </h3>
             <p className="text-gray-500">
-              Por favor selecciona un cliente desde el perfil para continuar.
+              Selecciona un cliente desde el directorio para continuar.
             </p>
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Indicador de Progreso */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-gray-700">
-                  Progreso de Diagn贸stico
+                  Progreso de Diagn髎tico
                 </h3>
                 <span className="text-sm text-gray-500">
                   {guardado1 && guardado2
@@ -194,25 +217,20 @@ const Diagnostico = () => {
               </div>
               <div className="flex gap-2">
                 <div
-                  className={`flex-1 h-2 rounded-full ${
-                    guardado1 ? "bg-green-500" : "bg-gray-200"
-                  }`}
-                  title="Diagn贸stico y Prop贸sito"
+                  className={`flex-1 h-2 rounded-full ${guardado1 ? "bg-green-500" : "bg-gray-200"}`}
+                  title="Diagn髎tico y Prop髎ito"
                 ></div>
                 <div
-                  className={`flex-1 h-2 rounded-full ${
-                    guardado2 ? "bg-green-500" : "bg-gray-200"
-                  }`}
-                  title="Alcance y Dise帽o"
+                  className={`flex-1 h-2 rounded-full ${guardado2 ? "bg-green-500" : "bg-gray-200"}`}
+                  title="Alcance y Dise駉"
                 ></div>
               </div>
               <div className="flex justify-between mt-2 text-xs text-gray-500">
-                <span>Diagn贸stico y Prop贸sito</span>
-                <span>Alcance y Dise帽o</span>
+                <span>Diagn髎tico y Prop髎ito</span>
+                <span>Alcance y Dise駉</span>
               </div>
             </div>
 
-            {/* Diagn贸stico 1 */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -221,17 +239,14 @@ const Diagnostico = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900">
-                      Diagn贸stico y Prop贸sito
+                      Diagn髎tico y Prop髎ito
                     </h2>
                     {guardado1 && (
-                      <CheckCircle
-                        className="w-5 h-5 text-green-500"
-                        title="Guardado"
-                      />
+                      <CheckCircle className="w-5 h-5 text-green-500" title="Guardado" />
                     )}
                   </div>
                   <p className="text-sm text-gray-500">
-                    An谩lisis inicial de la situaci贸n del cliente
+                    An醠isis inicial de la situaci髇 del cliente
                   </p>
                 </div>
               </div>
@@ -239,14 +254,17 @@ const Diagnostico = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Diagn贸stico y Prop贸sito
+                    Diagn髎tico y Prop髎ito
                   </label>
                   <textarea
                     value={diagnostico1}
-                    onChange={(e) => setDiagnostico1(e.target.value)}
+                    onChange={(e) => {
+                      setDiagnostico1(e.target.value);
+                      setGuardado1(false);
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows={6}
-                    placeholder="Describe el diagn贸stico actual de la situaci贸n del cliente y los objetivos principales de esta propuesta..."
+                    placeholder="Describe el diagn髎tico actual de la situaci髇 del cliente y los objetivos principales de esta propuesta..."
                   />
                 </div>
 
@@ -256,12 +274,11 @@ const Diagnostico = () => {
                   className="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4 inline mr-2" />
-                  {loading ? "Guardando..." : "Guardar Diagn贸stico y Prop贸sito"}
+                  {loading ? "Guardando..." : "Guardar Diagn髎tico y Prop髎ito"}
                 </button>
               </div>
             </div>
 
-            {/* Diagn贸stico 2 */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -270,17 +287,14 @@ const Diagnostico = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900">
-                      Alcance y Dise帽o
+                      Alcance y Dise駉
                     </h2>
                     {guardado2 && (
-                      <CheckCircle
-                        className="w-5 h-5 text-green-500"
-                        title="Guardado"
-                      />
+                      <CheckCircle className="w-5 h-5 text-green-500" title="Guardado" />
                     )}
                   </div>
                   <p className="text-sm text-gray-500">
-                    An谩lisis detallado del alcance y dise帽o
+                    An醠isis detallado del alcance y dise駉
                   </p>
                 </div>
               </div>
@@ -288,14 +302,17 @@ const Diagnostico = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Alcance y Dise帽o
+                    Alcance y Dise駉
                   </label>
                   <textarea
                     value={diagnostico2}
-                    onChange={(e) => setDiagnostico2(e.target.value)}
+                    onChange={(e) => {
+                      setDiagnostico2(e.target.value);
+                      setGuardado2(false);
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                     rows={6}
-                    placeholder="Describe el alcance del dise帽o y los deliverables que se incluir谩n en la propuesta..."
+                    placeholder="Describe el alcance del dise駉 y los entregables que se incluir醤 en la propuesta..."
                   />
                 </div>
 
@@ -305,7 +322,7 @@ const Diagnostico = () => {
                   className="w-full px-4 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4 inline mr-2" />
-                  {loading ? "Guardando..." : "Guardar Alcance y Dise帽o"}
+                  {loading ? "Guardando..." : "Guardar Alcance y Dise駉"}
                 </button>
               </div>
             </div>

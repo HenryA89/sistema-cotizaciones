@@ -1,7 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Zap } from "lucide-react";
 
-// Firebase
 import { useAuth } from "./hooks/useAuth.js";
 
 import {
@@ -138,11 +136,22 @@ const App = () => {
     })();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === "directory") return;
+    setViewingProfile(false);
+    setViewingNotes(false);
+  }, [activeTab]);
+
   // Sincronización en tiempo real del cliente seleccionado
   const freshClient = useMemo(() => {
     if (!selectedClient) return null;
     return clientes.find((c) => c.id === selectedClient.id) || selectedClient;
   }, [clientes, selectedClient]);
+
+  useEffect(() => {
+    if (!freshClient?.id) return;
+    localStorage.setItem("selectedClientId", String(freshClient.id));
+  }, [freshClient]);
 
   const addProduct = async (product) => {
     try {
@@ -270,6 +279,7 @@ const App = () => {
             selectedClient={selectedClient}
             setSelectedClient={(client) => {
               setSelectedClient(client);
+              localStorage.setItem("selectedClientId", String(client.id));
               setViewingProfile(true);
             }}
             onCreateQuote={() => setIsQuoteBuilderOpen(true)}
@@ -289,6 +299,16 @@ const App = () => {
               setViewingProfile(false);
               setViewingNotes(true);
             }}
+            onOpenDiagnostico={() => {
+              setActiveTab("diagnosticos");
+              setViewingProfile(false);
+              setViewingNotes(false);
+            }}
+            onCreateProposal={() => {
+              setActiveTab("propuestas");
+              setViewingProfile(false);
+              setViewingNotes(false);
+            }}
           />
         )}
 
@@ -304,7 +324,18 @@ const App = () => {
 
         {activeTab === "propuestas" && <Propuesta />}
 
-        {activeTab === "diagnosticos" && <Diagnostico />}
+        {activeTab === "diagnosticos" && (
+          <Diagnostico
+            clientId={freshClient?.id || selectedClient?.id}
+            clientData={freshClient || selectedClient}
+            onBack={() => {
+              setActiveTab("directory");
+              if (freshClient || selectedClient) {
+                setViewingProfile(true);
+              }
+            }}
+          />
+        )}
 
         {activeTab === "cliente-bitacora" && <ClienteBitacora />}
 

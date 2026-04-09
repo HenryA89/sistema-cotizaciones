@@ -5,6 +5,9 @@ const Header = ({ activeTab, onToggleSidebar }) => {
   const titles = {
     dashboard: "Panel Operativo",
     directory: "Directorio de Aliados",
+    propuestas: "Gestor de Propuestas",
+    diagnosticos: "Diagnóstico Estratégico",
+    "cliente-bitacora": "Bitácora del Cliente",
     productos: "Tarifario Global",
   };
 
@@ -26,7 +29,7 @@ const Header = ({ activeTab, onToggleSidebar }) => {
           className="text-xl font-black leading-none tracking-tighter uppercase whitespace-normal sm:text-lg md:text-xl lg:text-4xl wrap-break-word"
           style={{ hyphens: "none" }}
         >
-          {titles[activeTab]}
+          {titles[activeTab] || "Panel Operativo"}
         </h2>
       </div>
     </header>

@@ -5,23 +5,34 @@ export const useQuoteBuilder = () => {
   const [editingItem, setEditingItem] = useState(null);
 
   const addItem = (item) => {
-    setQuoteItems([...quoteItems, item]);
+    setQuoteItems((currentItems) => [...currentItems, item]);
     setEditingItem(item);
   };
 
   const updateItem = (index, updatedItem) => {
-    const newItems = [...quoteItems];
-    newItems[index] = updatedItem;
-    setQuoteItems(newItems);
+    setQuoteItems((currentItems) => {
+      const nextItems = [...currentItems];
+      nextItems[index] = updatedItem;
+      return nextItems;
+    });
   };
 
   const removeItem = (id) => {
-    setQuoteItems(quoteItems.filter((item) => item.id !== id));
+    setQuoteItems((currentItems) => currentItems.filter((item) => item.id !== id));
   };
 
   const clearItems = () => {
     setQuoteItems([]);
     setEditingItem(null);
+  };
+
+  const replaceItems = (items) => {
+    setQuoteItems(items);
+
+    if (!editingItem) return;
+
+    const freshEditingItem = items.find((item) => item.id === editingItem.id);
+    setEditingItem(freshEditingItem || null);
   };
 
   return {
@@ -32,5 +43,6 @@ export const useQuoteBuilder = () => {
     updateItem,
     removeItem,
     clearItems,
+    replaceItems,
   };
 };
