@@ -31,7 +31,7 @@ const QuoteBuilder = ({
     replaceItems,
   } = useQuoteBuilder();
 
-  const [distribuidorMode, setDistribuidorMode] = useState(false);
+  const [priceMode, setPriceMode] = useState("standard"); // "standard" o "distributor"
   const [preciosDistribuidor, setPreciosDistribuidor] = useState({});
   const [activeTab, setActiveTab] = useState("productos"); // "productos" o "servicios"
   const [loadingPrecios, setLoadingPrecios] = useState(false);
@@ -54,12 +54,12 @@ const QuoteBuilder = ({
     }
   };
 
-  // Cargar precios de distribuidor cuando se activa el modo
+  // Cargar precios de distribuidor cuando se selecciona el modo
   useEffect(() => {
-    if (distribuidorMode) {
+    if (priceMode === "distributor") {
       fetchPreciosDistribuidor();
     }
-  }, [distribuidorMode]);
+  }, [priceMode]);
 
   useEffect(() => {
     if (!Array.isArray(quoteItems) || quoteItems.length === 0) return;
@@ -70,9 +70,11 @@ const QuoteBuilder = ({
 
       const productoOriginal = productos.find((p) => p.id === item.producto_id);
       const precioBase =
-        productoOriginal?.precio_unitario || productoOriginal?.precio || item.precio;
+        productoOriginal?.precio_unitario ||
+        productoOriginal?.precio ||
+        item.precio;
 
-      if (!distribuidorMode) {
+      if (priceMode === "standard") {
         if (item.precio === precioBase) return item;
         return { ...item, precio: precioBase };
       }
@@ -91,13 +93,13 @@ const QuoteBuilder = ({
     if (changed) {
       replaceItems(nextItems);
     }
-  }, [distribuidorMode, preciosDistribuidor, productos, quoteItems, replaceItems]);
+  }, [priceMode, preciosDistribuidor, productos, quoteItems, replaceItems]);
 
   // Función para obtener el precio correcto según el modo
   const getPrecioProducto = (producto) => {
     const key = String(producto.id);
     if (
-      distribuidorMode &&
+      priceMode === "distributor" &&
       Object.prototype.hasOwnProperty.call(preciosDistribuidor, key)
     ) {
       return preciosDistribuidor[key];
@@ -206,28 +208,41 @@ const QuoteBuilder = ({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setDistribuidorMode(!distribuidorMode)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                distribuidorMode
-                  ? "bg-black text-white"
-                  : "border border-gray-200"
-              }`}
-              disabled={loadingPrecios}
-            >
-              <Truck className="w-4 h-4" />
-              {loadingPrecios
-                ? "Cargando..."
-                : distribuidorMode
-                  ? "Precios Distribuidor"
-                  : "Precios Persona"}
-            </button>
-            {distribuidorMode && (
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priceMode"
+                  value="standard"
+                  checked={priceMode === "standard"}
+                  onChange={(e) => setPriceMode(e.target.value)}
+                  className="w-4 h-4 text-black"
+                />
+                <span className="text-xs font-black tracking-widest uppercase">
+                  Precios Estándar
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priceMode"
+                  value="distributor"
+                  checked={priceMode === "distributor"}
+                  onChange={(e) => setPriceMode(e.target.value)}
+                  className="w-4 h-4 text-black"
+                />
+                <span className="text-xs font-black tracking-widest uppercase">
+                  Precios Distribuidor
+                </span>
+              </label>
+            </div>
+            {priceMode === "distributor" && (
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                {Object.keys(preciosDistribuidor).length} precios cargados
+                {loadingPrecios
+                  ? "Cargando precios..."
+                  : `${Object.keys(preciosDistribuidor).length} precios cargados`}
               </span>
             )}
-            {/* Botón de prueba eliminado */}
             <button
               onClick={onClose}
               className="p-2 text-gray-400 transition-colors rounded-full hover:bg-gray-100"

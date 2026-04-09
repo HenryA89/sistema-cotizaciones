@@ -35,7 +35,7 @@ const ClientProfile = ({
 
     if (!diagnostico1.trim() || !diagnostico2.trim()) {
       alert(
-        "Falta diligenciar diagnóstico y diseño. Completa ambos campos antes de generar la propuesta.",
+        "Falta diligenciar diagnÃ³stico y diseÃ±o. Completa ambos campos antes de generar la propuesta.",
       );
       return false;
     }
@@ -70,7 +70,7 @@ const ClientProfile = ({
           onClick={onBack}
           className="inline-flex items-center gap-2 px-5 py-3 text-xs font-black tracking-widest uppercase transition-all rounded-full shadow-lg bg-cream-bg text-primary-green hover:scale-105"
         >
-          <ChevronLeft className="w-4 h-4" /> Atrás
+          <ChevronLeft className="w-4 h-4" /> AtrÃ¡s
         </button>
 
         <div className="card p-10 rounded-[60px] border-blue-300 shadow-sm relative overflow-hidden text-center">
@@ -116,21 +116,22 @@ const ClientProfile = ({
             onClick={onOpenNotes}
             className="bg-cream-bg text-primary-green py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-blue-300 hover:text-blue-950 transition-all shadow-lg hover:shadow-xl"
           >
-            <BookOpen className="w-5 h-5" /> Bitácora
+            <BookOpen className="w-5 h-5" /> BitÃ¡cora
           </button>
 
           <button
             onClick={onOpenDiagnostico}
             className="bg-cream-bg text-primary-green py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-blue-300 hover:text-blue-950 transition-all shadow-lg hover:shadow-xl"
           >
-            <FileText className="w-5 h-5" /> Diagnóstico y Diseño
+            <FileText className="w-5 h-5" /> DiagnÃ³stico y DiseÃ±o
           </button>
 
           <button
             onClick={onCreateQuote}
             className="bg-cream-bg text-primary-green py-4 md:py-6 rounded-[35px] font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all shadow-2xl"
           >
-            <Zap className="w-5 h-5 text-yellow-500 fill-yellow-500" /> Cotización
+            <Zap className="w-5 h-5 text-yellow-500 fill-yellow-500" />{" "}
+            CotizaciÃ³n
           </button>
 
           <button
