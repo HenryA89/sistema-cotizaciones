@@ -43,10 +43,12 @@ const QuoteBuilder = ({
   // Obtener precios de distribuidor
   const fetchPreciosDistribuidor = async () => {
     setLoadingPrecios(true);
+    console.log("Cargando precios de distribuidor...");
 
     try {
       const preciosMap = await getDistributorPrices();
       setPreciosDistribuidor(preciosMap);
+      console.log("Precios distribuidor cargados:", preciosMap);
     } catch (err) {
       console.error("Error cargando precios de distribuidor:", err);
     } finally {
@@ -102,8 +104,10 @@ const QuoteBuilder = ({
       priceMode === "distributor" &&
       Object.prototype.hasOwnProperty.call(preciosDistribuidor, key)
     ) {
+      console.log(`Usando precio distribuidor para producto ${key}: ${preciosDistribuidor[key]}`);
       return preciosDistribuidor[key];
     }
+    console.log(`Usando precio estándar para producto ${key}: ${producto.precio_unitario || producto.precio || 0}`);
     return producto.precio_unitario || producto.precio || 0;
   };
 

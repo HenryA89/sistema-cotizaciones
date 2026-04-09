@@ -64,6 +64,7 @@ const fetchDistributorPriceRows = async () => {
 
 export const getDistributorPrices = async () => {
   const rows = await fetchDistributorPriceRows();
+  console.log("Filas obtenidas de precios_producto:", rows);
   const pricesMap = {};
 
   for (const row of rows) {
@@ -76,8 +77,10 @@ export const getDistributorPrices = async () => {
 
     if (!productId || price === null) continue;
     pricesMap[String(productId)] = price;
+    console.log(`Precio distribuidor para producto ${productId}: ${price}`);
   }
 
+  console.log("Mapa de precios distribuidor:", pricesMap);
   return pricesMap;
 };
 
@@ -114,7 +117,7 @@ export const saveDiagnosisNote = async ({ clientId, type, content }) => {
   const cleanContent = normalizeText(content);
 
   if (!cleanClientId) throw new Error("Cliente no seleccionado");
-  if (!cleanContent) throw new Error("Contenido de diagnóstico vacío");
+  if (!cleanContent) throw new Error("Contenido de diagnï¿½stico vacï¿½o");
 
   const { data: existing, error: readError } = await supabase
     .from("notas")
