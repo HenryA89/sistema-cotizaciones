@@ -1,6 +1,7 @@
 import supabase from "./supabaseClient.js";
 
-const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
+const normalizeText = (value) =>
+  typeof value === "string" ? value.trim() : "";
 
 const toNumber = (value) => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -38,28 +39,13 @@ export const getClientById = async (clientId) => {
 };
 
 const fetchDistributorPriceRows = async () => {
-  const attempts = [
-    { column: "tipo_precio", value: "distribuidor" },
-    { column: "tipo", value: "distribuidor" },
-  ];
+  const { data, error } = await supabase
+    .from("precios_producto")
+    .select("*")
+    .eq("tipo_precio", "distribuidor");
 
-  for (const attempt of attempts) {
-    const { data, error } = await supabase
-      .from("precios_producto")
-      .select("*")
-      .eq(attempt.column, attempt.value);
-
-    if (!error && Array.isArray(data)) {
-      return data;
-    }
-  }
-
-  const { data, error } = await supabase.from("precios_producto").select("*");
   if (error) throw error;
-
-  return (data || []).filter(
-    (row) => row?.tipo_precio === "distribuidor" || row?.tipo === "distribuidor",
-  );
+  return data || [];
 };
 
 export const getDistributorPrices = async () => {
@@ -68,12 +54,9 @@ export const getDistributorPrices = async () => {
   const pricesMap = {};
 
   for (const row of rows) {
-    const productId = row?.producto_id ?? row?.product_id ?? row?.id_producto;
+    const productId = row?.producto_id;
     const price =
-      toNumber(row?.precio_distribuidor) ??
-      toNumber(row?.precio_unitario) ??
-      toNumber(row?.precio) ??
-      toNumber(row?.valor);
+      toNumber(row?.valor_neto_unitario) ?? toNumber(row?.valor_bruto_unitario);
 
     if (!productId || price === null) continue;
     pricesMap[String(productId)] = price;

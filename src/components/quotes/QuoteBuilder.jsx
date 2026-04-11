@@ -104,10 +104,14 @@ const QuoteBuilder = ({
       priceMode === "distributor" &&
       Object.prototype.hasOwnProperty.call(preciosDistribuidor, key)
     ) {
-      console.log(`Usando precio distribuidor para producto ${key}: ${preciosDistribuidor[key]}`);
+      console.log(
+        `Usando precio distribuidor para producto ${key}: ${preciosDistribuidor[key]}`,
+      );
       return preciosDistribuidor[key];
     }
-    console.log(`Usando precio estándar para producto ${key}: ${producto.precio_unitario || producto.precio || 0}`);
+    console.log(
+      `Usando precio estándar para producto ${key}: ${producto.precio_unitario || producto.precio || 0}`,
+    );
     return producto.precio_unitario || producto.precio || 0;
   };
 
