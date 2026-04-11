@@ -20,6 +20,7 @@ const QuoteBuilder = ({
   productos,
   servicios,
   onAddProduct,
+  onQuoteSaved,
 }) => {
   const {
     quoteItems,
@@ -192,8 +193,9 @@ const QuoteBuilder = ({
         alert("Cotización guardada exitosamente");
         console.log("Cotización guardada:", cotizacionCreada);
 
-        // Redirigir a página de propuestas
-        window.location.href = `/propuestas?cotizacionId=${cotizacionCreada.id}`;
+        if (typeof onQuoteSaved === "function") {
+          onQuoteSaved(cotizacionCreada.id);
+        }
       }
     } catch (error) {
       console.error("Error en handleSaveQuote:", error);

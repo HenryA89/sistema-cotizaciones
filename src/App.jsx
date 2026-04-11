@@ -236,6 +236,15 @@ const App = () => {
         productos={productos}
         servicios={servicios}
         onAddProduct={addProduct}
+        onQuoteSaved={(cotizacionId) => {
+          setIsQuoteBuilderOpen(false);
+          setViewingProfile(false);
+          setViewingNotes(false);
+          setActiveTab("propuestas");
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set("cotizacionId", cotizacionId);
+          window.history.pushState({}, "", newUrl.toString());
+        }}
       />
 
       {/* SIDEBAR INSTITUCIONAL */}
